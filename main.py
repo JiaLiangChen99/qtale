@@ -2,7 +2,7 @@ import flet as ft
 
 def main(page: ft.Page):
     wv = ft.WebView(
-        "echart.html",
+        "https://flet.dev/",
         expand=True,
         on_page_started=lambda _: print("Page started"),
         on_page_ended=lambda _: print("Page ended"),
