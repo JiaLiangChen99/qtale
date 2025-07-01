@@ -29,23 +29,31 @@ class HomeView(Xview):
                     ),
                 ]
             ),
-            vertical_alignment=ft.MainAxisAlignment.CENTER,
+            vertical_alignment=ft.MainAxisAlignment.START,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             controls=[
-                # 渲染底部导航栏的信息，然后进行筛选处理
-                Switch(
-                    ref=self.state.nav_switch,
-                    controls={
-                        "0":ft.Column(
-                            expand=True,
-                            controls=[
-                                ft.Text("Home",size=30),
-                                ft.ElevatedButton("Go Next View",on_click=lambda e:self.go("/next"))
-                            ]
-                        ),
-                        "1":self.state.second_page,
-                        "2":ft.Text("Explore",size=30),
-                    }
+                ft.Container(
+                    expand=True,
+                    padding=10,  # 添加一些内边距
+                    content=Switch(
+                        ref=self.state.nav_switch,
+                        controls={
+                            "0": ft.Container(
+                                expand=True,
+                                content=ft.Column(
+                                    controls=[
+                                        ft.Text("Home",size=30),
+                                        ft.ElevatedButton("Go Next View",on_click=lambda e:self.go("/next"))
+                                    ]
+                                )
+                            ),
+                            "1": self.state.second_page,
+                            "2": ft.Container(
+                                expand=True,
+                                content=ft.Text("Explore",size=30)
+                            ),
+                        }
+                    )
                 )
             ]
         )
