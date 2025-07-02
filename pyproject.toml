@@ -1,12 +1,9 @@
 [project]
-name = "flet"
+name = "fletxbuild"
 version = "0.1.0"
-description = "sqlitetest"
+description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "flet",
     "fletx>=0.2.0",
-    "requests>=2.32.4",
-    "sqlalchemy",
 ]

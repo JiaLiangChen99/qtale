@@ -3,49 +3,14 @@ from fletx import Xstate
 from fletx.controls import Switch
 import flet as ft
 import random
-import requests
-from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.orm import declarative_base, sessionmaker
 
-
-class User(declarative_base()):
-    __tablename__ = "user"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-
-# 新增 News 模型
-class News(declarative_base()):
-    __tablename__ = "news"
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    content = Column(String, nullable=False)
-    time = Column(String, nullable=False)
-    likes = Column(Integer, nullable=False)
-
-# 创建数据库引擎（你可以根据实际情况调整数据库路径）
-engine = create_engine("sqlite:///news.db", echo=False)
-SessionLocal = sessionmaker(bind=engine)
 
 class CommutePageState:    
     def __init__(self):
-        # 检查User表是否为空，若为空则插入随机用户
-        session = SessionLocal()
-        if not session.query(User).first():
-            names = [
-                "张三", "李四", "王五", "赵六", "小明", "小红", "Alice", "Bob"
-            ]
-            for name in random.sample(names, 5):
-                session.add(User(name=name))
-            session.commit()
-        session.close()
         self.page = self.build()
 
     def generate_random_text(self):
-        response = requests.get("https://www.baidu.com")
-        code_text = str(response.status_code)
-        # 生成一些随机的文本数据
         titles = ["今天的新闻", "热点话题", "每日推荐", "科技资讯", "生活小贴士"]
-        titles = [title + code_text for title in titles]
         contents = [
             "人工智能发展迅速，改变生活方式",
             "环保理念深入人心，绿色生活成为主流",
@@ -55,7 +20,6 @@ class CommutePageState:
         ]
         
         data = []
-        session = SessionLocal()
         for _ in range(10):
             item = {
                 "title": random.choice(titles),
@@ -64,11 +28,6 @@ class CommutePageState:
                 "likes": random.randint(100, 1000)
             }
             data.append(item)
-            # 插入到数据库
-            news = News(**item)
-            session.add(news)
-        session.commit()
-        session.close()
         return data
 
     def load_first_page_data(self, render_new: bool=False):
@@ -87,28 +46,6 @@ class CommutePageState:
             border_radius=10,
         )
         
-        # 查询所有用户
-        session = SessionLocal()
-        users = session.query(User).all()
-        session.close()
-
-        # 2. 用 Flet 组件展示用户
-        if users:
-            user_list_column = ft.Column(
-                controls=[
-                    ft.Text("用户列表", size=18, weight=ft.FontWeight.BOLD),
-                    *[
-                        ft.ListTile(
-                            leading=ft.Icon(ft.Icons.PERSON),
-                            title=ft.Text(user.name)
-                        ) for user in users
-                    ]
-                ],
-                spacing=5
-            )
-            # 可以把用户列表加到滚动容器最前面
-            scroll_container.content.controls.append(user_list_column)
-
         # 3. 资讯卡片
         random_data = self.generate_random_text()
         for item in random_data:
