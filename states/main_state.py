@@ -67,8 +67,30 @@ class CommutePageState:
             border=ft.border.all(1, ft.Colors.BLACK12),  # 添加边框便于查看区域
             border_radius=10,
         )
-        
-        # 3. 资讯卡片
+
+        # 查询所有用户
+        session = SessionLocal()
+        users = session.query(User).all()
+        session.close()
+
+        # 用 Flet 组件展示用户
+        if users:
+            user_list_column = ft.Column(
+                controls=[
+                    ft.Text("用户列表", size=18, weight=ft.FontWeight.BOLD),
+                    *[
+                        ft.ListTile(
+                            leading=ft.Icon(ft.Icons.PERSON),
+                            title=ft.Text(user.name)
+                        ) for user in users
+                    ]
+                ],
+                spacing=5
+            )
+            # 用户列表加到滚动容器最前面
+            scroll_container.content.controls.append(user_list_column)
+
+        # 资讯卡片
         random_data = self.generate_random_text()
         for item in random_data:
             scroll_container.content.controls.append(
@@ -96,7 +118,7 @@ class CommutePageState:
                             ft.Container(
                                 content=ft.Row([
                                     ft.Icon(ft.Icons.THUMB_UP, size=16),
-                                    ft.Text(f"{item['likes']}"),
+                                    ft.Text(f"{item['likes']}")
                                 ]),
                                 padding=ft.padding.only(left=15, bottom=10)
                             )
