@@ -4,9 +4,31 @@ from fletx.controls import Switch
 import flet as ft
 import random
 from sqlalchemy import *
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+# SQLAlchemy基础设置
+Base = declarative_base()
+engine = create_engine("sqlite:///news.db", echo=False)
+SessionLocal = sessionmaker(bind=engine)
+
+class User(Base):
+    __tablename__ = "user"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+
+# 创建表
+Base.metadata.create_all(engine)
 
 class CommutePageState:    
     def __init__(self):
+        # 检查User表是否为空，若为空则插入随机用户
+        session = SessionLocal()
+        if not session.query(User).first():
+            names = ["张三", "李四", "王五", "赵六", "小明", "小红", "Alice", "Bob"]
+            for name in random.sample(names, 5):
+                session.add(User(name=name))
+            session.commit()
+        session.close()
         self.page = self.build()
 
     def generate_random_text(self):
