@@ -5,7 +5,6 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "flet-cli>=0.28.3",
     "flet[all]==0.28.3",
     "fletx>=0.2.0",
     "requests>=2.32.4",
