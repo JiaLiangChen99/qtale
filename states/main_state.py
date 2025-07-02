@@ -4,37 +4,40 @@ from fletx.controls import Switch
 import flet as ft
 import random
 import requests
-from sqlmodel import create_engine, Field, SQLModel, Session, select
+from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 
-class User(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    name: str
+class User(declarative_base()):
+    __tablename__ = "user"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
 
 # 新增 News 模型
-class News(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    title: str
-    content: str
-    time: str
-    likes: int
+class News(declarative_base()):
+    __tablename__ = "news"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    content = Column(String, nullable=False)
+    time = Column(String, nullable=False)
+    likes = Column(Integer, nullable=False)
 
 # 创建数据库引擎（你可以根据实际情况调整数据库路径）
-engine = create_engine("sqlite:///news.db")
-SQLModel.metadata.create_all(engine)
+engine = create_engine("sqlite:///news.db", echo=False)
+SessionLocal = sessionmaker(bind=engine)
 
-class CommutePageState:
-    
+class CommutePageState:    
     def __init__(self):
         # 检查User表是否为空，若为空则插入随机用户
-        with Session(engine) as session:
-            if not session.exec(select(User)).first():
-                names = [
-                    "张三", "李四", "王五", "赵六", "小明", "小红", "Alice", "Bob"
-                ]
-                for name in random.sample(names, 5):
-                    session.add(User(name=name))
-                session.commit()
+        session = SessionLocal()
+        if not session.query(User).first():
+            names = [
+                "张三", "李四", "王五", "赵六", "小明", "小红", "Alice", "Bob"
+            ]
+            for name in random.sample(names, 5):
+                session.add(User(name=name))
+            session.commit()
+        session.close()
         self.page = self.build()
 
     def generate_random_text(self):
@@ -52,19 +55,20 @@ class CommutePageState:
         ]
         
         data = []
-        with Session(engine) as session:
-            for _ in range(10):
-                item = {
-                    "title": random.choice(titles),
-                    "content": random.choice(contents),
-                    "time": f"2024-{random.randint(1,12):02d}-{random.randint(1,28):02d}",
-                    "likes": random.randint(100, 1000)
-                }
-                data.append(item)
-                # 插入到数据库
-                news = News(**item)
-                session.add(news)
-            session.commit()
+        session = SessionLocal()
+        for _ in range(10):
+            item = {
+                "title": random.choice(titles),
+                "content": random.choice(contents),
+                "time": f"2024-{random.randint(1,12):02d}-{random.randint(1,28):02d}",
+                "likes": random.randint(100, 1000)
+            }
+            data.append(item)
+            # 插入到数据库
+            news = News(**item)
+            session.add(news)
+        session.commit()
+        session.close()
         return data
 
     def load_first_page_data(self, render_new: bool=False):
@@ -83,9 +87,10 @@ class CommutePageState:
             border_radius=10,
         )
         
-        # 1. 查询所有用户
-        with Session(engine) as session:
-            users = session.query(User).all()
+        # 查询所有用户
+        session = SessionLocal()
+        users = session.query(User).all()
+        session.close()
 
         # 2. 用 Flet 组件展示用户
         if users:
