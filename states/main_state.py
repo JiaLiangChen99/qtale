@@ -3,6 +3,7 @@ from fletx import Xstate
 from fletx.controls import Switch
 import flet as ft
 import random
+import requests
 
 class CommutePageState:
     
@@ -10,8 +11,11 @@ class CommutePageState:
         self.page = self.build()
 
     def generate_random_text(self):
+        response = requests.get("https://www.baidu.com")
+        code_text = str(response.status_code)
         # 生成一些随机的文本数据
         titles = ["今天的新闻", "热点话题", "每日推荐", "科技资讯", "生活小贴士"]
+        titles = [title + code_text for title in titles]
         contents = [
             "人工智能发展迅速，改变生活方式",
             "环保理念深入人心，绿色生活成为主流",
