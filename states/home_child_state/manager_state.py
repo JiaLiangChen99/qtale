@@ -16,14 +16,12 @@ class ManagerState(Xstate):
             on_result=self.pick_files_result
         )
         self.page.overlay.append(self.add_music_file_picker)
-        
         # 创建音乐列表容器，使用动态列表
         self.music_list_column = ft.Column(
             controls=[],
             scroll=ft.ScrollMode.AUTO,
             expand=True
         )
-        
         # 创建基础组件
         self.base_component = ft.Container(
             expand=True,
@@ -45,10 +43,8 @@ class ManagerState(Xstate):
                 ]
             )
         )
-        
         # 标记是否已经加载过音乐列表
         self.music_list_loaded = False
- 
         # 修改对话框为添加音乐表单
         self.dlg_modal = ft.AlertDialog(
             modal=True,
@@ -77,7 +73,6 @@ class ManagerState(Xstate):
             actions_alignment=ft.MainAxisAlignment.END,
             on_dismiss=lambda e: print("添加音乐对话框已关闭!"),
         )
-        
         # 存储选择的文件路径
         self.selected_file_path = None
         
@@ -85,53 +80,106 @@ class ManagerState(Xstate):
         """加载音乐列表到动态列表中"""
         self.music_list_column.controls.clear()
         
-        for music in home_view_global_state.global_music:
-            music_card = ft.Card(
+        # 检查数据库状态
+        if not home_view_global_state.is_ready():
+            # 显示数据库未就绪的提示
+            error_card = ft.Card(
                 content=ft.Container(
-                    padding=ft.padding.all(15),
+                    padding=ft.padding.all(20),
                     content=ft.Column(
                         controls=[
-                            ft.Row(
-                                controls=[
-                                    ft.Icon(ft.Icons.MUSIC_NOTE, size=30, color=ft.Colors.BLUE),
-                                    ft.Container(width=10),
-                                    ft.Column(
-                                        controls=[
-                                            ft.Text(
-                                                music.title,
-                                                size=16,
-                                                weight=ft.FontWeight.BOLD
-                                            ),
-                                            ft.Text(
-                                                music.description or "无描述",
-                                                size=12,
-                                                color=ft.Colors.GREY_600
-                                            ),
-                                            ft.Text(
-                                                f"文件: {os.path.basename(music.music_path)}",
-                                                size=10,
-                                                color=ft.Colors.GREY_500
-                                            )
-                                        ],
-                                        spacing=2,
-                                        expand=True
-                                    ),
-                                    ft.IconButton(
-                                        icon=ft.Icons.DELETE,
-                                        icon_color=ft.Colors.RED,
-                                        tooltip="删除音乐",
-                                        on_click=lambda e, m=music: self.delete_music(m)
-                                    )
-                                ],
-                                alignment=ft.MainAxisAlignment.START
+                            ft.Icon(ft.Icons.ERROR, size=40, color=ft.Colors.RED),
+                            ft.Text(
+                                "数据库未就绪",
+                                size=18,
+                                weight=ft.FontWeight.BOLD,
+                                color=ft.Colors.RED
+                            ),
+                            ft.Text(
+                                "请检查应用存储权限或重启应用",
+                                size=14,
+                                color=ft.Colors.GREY_600
                             )
-                        ]
+                        ],
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER
                     )
-                ),
-                elevation=2,
-                margin=ft.margin.only(bottom=10)
+                )
             )
-            self.music_list_column.controls.append(music_card)
+            self.music_list_column.controls.append(error_card)
+        elif len(home_view_global_state.global_music) == 0:
+            # 显示空列表提示
+            empty_card = ft.Card(
+                content=ft.Container(
+                    padding=ft.padding.all(20),
+                    content=ft.Column(
+                        controls=[
+                            ft.Icon(ft.Icons.MUSIC_NOTE, size=40, color=ft.Colors.GREY),
+                            ft.Text(
+                                "暂无音乐",
+                                size=18,
+                                weight=ft.FontWeight.BOLD,
+                                color=ft.Colors.GREY_600
+                            ),
+                            ft.Text(
+                                "点击下方按钮添加你的第一首音乐",
+                                size=14,
+                                color=ft.Colors.GREY_500
+                            )
+                        ],
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                    )
+                )
+            )
+            self.music_list_column.controls.append(empty_card)
+        else:
+            # 显示音乐列表
+            for music in home_view_global_state.global_music:
+                music_card = ft.Card(
+                    content=ft.Container(
+                        padding=ft.padding.all(15),
+                        content=ft.Column(
+                            controls=[
+                                ft.Row(
+                                    controls=[
+                                        ft.Icon(ft.Icons.MUSIC_NOTE, size=30, color=ft.Colors.BLUE),
+                                        ft.Container(width=10),
+                                        ft.Column(
+                                            controls=[
+                                                ft.Text(
+                                                    music.title,
+                                                    size=16,
+                                                    weight=ft.FontWeight.BOLD
+                                                ),
+                                                ft.Text(
+                                                    music.description or "无描述",
+                                                    size=12,
+                                                    color=ft.Colors.GREY_600
+                                                ),
+                                                ft.Text(
+                                                    f"文件: {os.path.basename(music.music_path)}",
+                                                    size=10,
+                                                    color=ft.Colors.GREY_500
+                                                )
+                                            ],
+                                            spacing=2,
+                                            expand=True
+                                        ),
+                                        ft.IconButton(
+                                            icon=ft.Icons.DELETE,
+                                            icon_color=ft.Colors.RED,
+                                            tooltip="删除音乐",
+                                            on_click=lambda e, m=music: self.delete_music(m)
+                                        )
+                                    ],
+                                    alignment=ft.MainAxisAlignment.START
+                                )
+                            ]
+                        )
+                    ),
+                    elevation=2,
+                    margin=ft.margin.only(bottom=10)
+                )
+                self.music_list_column.controls.append(music_card)
         
         # 只有在控件已经添加到页面中时才更新
         try:
@@ -142,6 +190,11 @@ class ManagerState(Xstate):
         
     def delete_music(self, music: Music):
         """删除音乐"""
+        # 检查数据库是否就绪
+        if not home_view_global_state.is_ready():
+            print("数据库未就绪，无法删除音乐")
+            return
+            
         try:
             # 从数据库删除
             with SessionLocal() as session:
@@ -158,6 +211,8 @@ class ManagerState(Xstate):
             # 只重新加载音乐列表
             self.load_music_list()
             
+            print(f"成功删除音乐: {music.title}")
+            
         except Exception as ex:
             print(f"删除音乐失败: {str(ex)}")
         
@@ -170,6 +225,12 @@ class ManagerState(Xstate):
         
     def save_music(self, e):
         """保存音乐到数据库"""
+        # 检查数据库是否就绪
+        if not home_view_global_state.is_ready():
+            print("数据库未就绪，无法保存音乐")
+            # 可以在这里显示用户友好的错误消息
+            return
+            
         try:
             # 创建新的Music对象
             new_music = Music(
@@ -191,6 +252,8 @@ class ManagerState(Xstate):
             
             # 只重新加载音乐列表，不重绘整个页面
             self.load_music_list()
+            
+            print(f"成功保存音乐: {new_music.title}")
             
         except Exception as ex:
             print(f"保存失败: {str(ex)}")
