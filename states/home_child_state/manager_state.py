@@ -17,6 +17,38 @@ class ManagerState(Xstate):
         )
         self.page.overlay.append(self.add_music_file_picker)
         
+        # 创建音乐列表容器，使用动态列表
+        self.music_list_column = ft.Column(
+            controls=[],
+            scroll=ft.ScrollMode.AUTO,
+            expand=True
+        )
+        
+        # 创建基础组件
+        self.base_component = ft.Container(
+            expand=True,
+            content=ft.Column(
+                controls=[
+                    ft.Text("音乐管理", size=24, weight=ft.FontWeight.BOLD),
+                    # 使用动态音乐列表
+                    ft.Container(
+                        content=self.music_list_column,
+                        expand=True,
+                        padding=ft.padding.all(10)
+                    ),
+                    ft.Container(height=30),
+                    ft.FloatingActionButton(
+                        icon=ft.Icons.ADD,
+                        text="创建音乐",
+                        on_click=lambda e: self.page.open(self.dlg_modal)
+                    )
+                ]
+            )
+        )
+        
+        # 标记是否已经加载过音乐列表
+        self.music_list_loaded = False
+ 
         # 修改对话框为添加音乐表单
         self.dlg_modal = ft.AlertDialog(
             modal=True,
@@ -49,6 +81,86 @@ class ManagerState(Xstate):
         # 存储选择的文件路径
         self.selected_file_path = None
         
+    def load_music_list(self):
+        """加载音乐列表到动态列表中"""
+        self.music_list_column.controls.clear()
+        
+        for music in home_view_global_state.global_music:
+            music_card = ft.Card(
+                content=ft.Container(
+                    padding=ft.padding.all(15),
+                    content=ft.Column(
+                        controls=[
+                            ft.Row(
+                                controls=[
+                                    ft.Icon(ft.Icons.MUSIC_NOTE, size=30, color=ft.Colors.BLUE),
+                                    ft.Container(width=10),
+                                    ft.Column(
+                                        controls=[
+                                            ft.Text(
+                                                music.title,
+                                                size=16,
+                                                weight=ft.FontWeight.BOLD
+                                            ),
+                                            ft.Text(
+                                                music.description or "无描述",
+                                                size=12,
+                                                color=ft.Colors.GREY_600
+                                            ),
+                                            ft.Text(
+                                                f"文件: {os.path.basename(music.music_path)}",
+                                                size=10,
+                                                color=ft.Colors.GREY_500
+                                            )
+                                        ],
+                                        spacing=2,
+                                        expand=True
+                                    ),
+                                    ft.IconButton(
+                                        icon=ft.Icons.DELETE,
+                                        icon_color=ft.Colors.RED,
+                                        tooltip="删除音乐",
+                                        on_click=lambda e, m=music: self.delete_music(m)
+                                    )
+                                ],
+                                alignment=ft.MainAxisAlignment.START
+                            )
+                        ]
+                    )
+                ),
+                elevation=2,
+                margin=ft.margin.only(bottom=10)
+            )
+            self.music_list_column.controls.append(music_card)
+        
+        # 只有在控件已经添加到页面中时才更新
+        try:
+            if hasattr(self.music_list_column, 'page') and self.music_list_column.page:
+                self.music_list_column.update()
+        except:
+            pass  # 如果更新失败，忽略错误
+        
+    def delete_music(self, music: Music):
+        """删除音乐"""
+        try:
+            # 从数据库删除
+            with SessionLocal() as session:
+                session.delete(session.merge(music))
+                session.commit()
+            
+            # 删除文件
+            if os.path.exists(music.music_path):
+                os.remove(music.music_path)
+            
+            # 刷新全局状态
+            home_view_global_state.reload_music()
+            
+            # 只重新加载音乐列表
+            self.load_music_list()
+            
+        except Exception as ex:
+            print(f"删除音乐失败: {str(ex)}")
+        
     def close_dialog(self, e):
         """关闭对话框并清空表单"""
         self.add_title_field.value = ""
@@ -74,16 +186,14 @@ class ManagerState(Xstate):
             # 刷新全局音乐列表
             home_view_global_state.reload_music()
             
-            # 显示成功消息
-            # self.page.show_snack_bar(ft.SnackBar(content=ft.Text("音乐添加成功!")))
-            
             # 关闭对话框
             self.close_dialog(e)
-            # 更新页面
-            self.update()
+            
+            # 只重新加载音乐列表，不重绘整个页面
+            self.load_music_list()
             
         except Exception as ex:
-            self.page.show_snack_bar(ft.SnackBar(content=ft.Text(f"保存失败: {str(ex)}")))
+            print(f"保存失败: {str(ex)}")
         
     def pick_files_result(self, e: ft.FilePickerResultEvent):
         """处理文件选择结果"""
@@ -98,8 +208,10 @@ class ManagerState(Xstate):
                 # 确保MUSIC_PATH目录存在
                 if not os.path.exists(MUSIC_PATH):
                     os.makedirs(MUSIC_PATH)
+                
                 # 生成目标文件路径
                 destination_path = os.path.join(MUSIC_PATH, file_name)
+                
                 # 如果文件已存在，添加数字后缀
                 counter = 1
                 name_part, ext_part = os.path.splitext(file_name)
@@ -107,44 +219,20 @@ class ManagerState(Xstate):
                     new_name = f"{name_part}_{counter}{ext_part}"
                     destination_path = os.path.join(MUSIC_PATH, new_name)
                     counter += 1
+                
                 # 复制文件到目标目录
                 shutil.copy2(source_path, destination_path)
+                
                 # 保存文件路径
                 self.selected_file_path = destination_path
                 
             except Exception as ex:
                 self.selected_file_path = None
 
-    def reload_music_list(self):
-        home_view_global_state.reload_music()
-        self.page.update()
-
     def build_manager_page(self) -> ft.Container:
-        # 将dialog添加到页面
+        # 首次加载时初始化音乐列表
+        if not self.music_list_loaded:
+            self.load_music_list()
+            self.music_list_loaded = True
         
-        return ft.Container(
-            expand=True,
-            content=ft.Column(
-                controls=[
-                    ft.Text("音乐管理", size=24, weight=ft.FontWeight.BOLD),
-                    *[
-                        ft.Card(
-                            content=ft.ListTile(
-                                title=ft.Text(music.title),
-                                subtitle=ft.Text(music.description or ""),
-                                trailing=ft.Text(music.music_path.split("/")[-1]),
-                                # 你可以实现edit_music方法用于编辑
-                                # on_click=lambda e, m=music: self.edit_music(m)
-                            )
-                        )
-                        for music in home_view_global_state.global_music
-                    ],
-                    ft.Container(height=30),
-                    ft.FloatingActionButton(
-                        icon=ft.Icons.ADD,
-                        text="创建音乐",
-                        on_click=lambda e: self.page.open(self.dlg_modal)
-                    )
-                ]
-            )
-        )
+        return self.base_component
