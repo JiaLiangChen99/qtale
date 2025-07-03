@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import random
 import base64
 import os
+from enum import Enum
 
 import flet as ft
 from fletx import Xstate
@@ -11,12 +12,22 @@ from static import MUSIC_PATH, IMAGE_PATH
 from ..global_state import home_view_global_state
 from ..model import Music
 
+class PlayMode(Enum):
+    """播放模式枚举"""
+    LOOP_ALL = "循环播放"
+    LOOP_SINGLE = "单曲循环"
+    RANDOM = "随机播放"
+    SEQUENTIAL = "顺序播放"
+
 class HomeState(Xstate):
     def __init__(self, page):
         super().__init__(page)
 
         self.music_list: list[Music] = home_view_global_state.global_music
         self.music_list_container: list[ft.Container] = []
+        
+        # 播放模式
+        self.play_mode = PlayMode.LOOP_ALL
         
         # 创建音频播放器 - 设置一个默认的空src以避免错误
         self.audio_player = ft.Audio(
@@ -40,6 +51,14 @@ class HomeState(Xstate):
             icon=ft.Icons.PLAY_ARROW,
             icon_size=40,
             on_click=self.toggle_play_pause
+        )
+        
+        # 播放模式按钮
+        self.play_mode_button = ft.IconButton(
+            icon=ft.Icons.REPEAT,
+            icon_size=25,
+            tooltip=self.play_mode.value,
+            on_click=self.toggle_play_mode
         )
         
         self.current_music_title = ft.Text("未选择音乐", size=16, weight=ft.FontWeight.BOLD)
@@ -89,6 +108,7 @@ class HomeState(Xstate):
                     ),
                     ft.Row(
                         controls=[
+                            self.play_mode_button,
                             ft.IconButton(
                                 icon=ft.Icons.SKIP_PREVIOUS,
                                 icon_size=30,
@@ -106,6 +126,122 @@ class HomeState(Xstate):
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN
             )
         )
+
+    def toggle_play_mode(self, e):
+        """切换播放模式"""
+        modes = list(PlayMode)
+        current_index = modes.index(self.play_mode)
+        next_index = (current_index + 1) % len(modes)
+        self.play_mode = modes[next_index]
+        
+        # 更新播放模式按钮图标和提示
+        mode_icons = {
+            PlayMode.LOOP_ALL: ft.Icons.REPEAT,
+            PlayMode.LOOP_SINGLE: ft.Icons.REPEAT_ONE,
+            PlayMode.RANDOM: ft.Icons.SHUFFLE,
+            PlayMode.SEQUENTIAL: ft.Icons.PLAY_ARROW
+        }
+        
+        self.play_mode_button.icon = mode_icons[self.play_mode]
+        self.play_mode_button.tooltip = self.play_mode.value
+        
+        print(f"播放模式切换为: {self.play_mode.value}")
+        self.update_control_bar()
+
+    def get_next_music_index(self):
+        """根据播放模式获取下一首音乐的索引"""
+        if not self.music_list:
+            return -1
+        
+        # 刷新音乐列表
+        self.music_list = home_view_global_state.global_music
+        
+        if not self.music_list:
+            return -1
+        
+        current_index = -1
+        if self.current_playing_music:
+            for i, music in enumerate(self.music_list):
+                if music.id == self.current_playing_music.id:
+                    current_index = i
+                    break
+        
+        if self.play_mode == PlayMode.LOOP_SINGLE:
+            # 单曲循环：返回当前索引
+            return current_index if current_index >= 0 else 0
+        elif self.play_mode == PlayMode.RANDOM:
+            # 随机播放：随机选择一首（避免选择当前播放的）
+            available_indices = [i for i in range(len(self.music_list)) if i != current_index]
+            if available_indices:
+                return random.choice(available_indices)
+            else:
+                return 0
+        else:
+            # 循环播放和顺序播放
+            if current_index >= len(self.music_list) - 1:
+                if self.play_mode == PlayMode.LOOP_ALL:
+                    return 0  # 循环到第一首
+                else:  # SEQUENTIAL
+                    return -1  # 顺序播放结束
+            else:
+                return current_index + 1
+
+    def get_previous_music_index(self):
+        """根据播放模式获取上一首音乐的索引"""
+        if not self.music_list:
+            return -1
+        
+        # 刷新音乐列表
+        self.music_list = home_view_global_state.global_music
+        
+        if not self.music_list:
+            return -1
+        
+        current_index = -1
+        if self.current_playing_music:
+            for i, music in enumerate(self.music_list):
+                if music.id == self.current_playing_music.id:
+                    current_index = i
+                    break
+        
+        if self.play_mode == PlayMode.LOOP_SINGLE:
+            # 单曲循环：返回当前索引
+            return current_index if current_index >= 0 else 0
+        elif self.play_mode == PlayMode.RANDOM:
+            # 随机播放：随机选择一首（避免选择当前播放的）
+            available_indices = [i for i in range(len(self.music_list)) if i != current_index]
+            if available_indices:
+                return random.choice(available_indices)
+            else:
+                return 0
+        else:
+            # 循环播放和顺序播放
+            if current_index <= 0:
+                if self.play_mode == PlayMode.LOOP_ALL:
+                    return len(self.music_list) - 1  # 循环到最后一首
+                else:  # SEQUENTIAL
+                    return -1  # 顺序播放开始
+            else:
+                return current_index - 1
+
+    def auto_play_next(self):
+        """自动播放下一首音乐"""
+        print(f"音乐播放完毕，当前播放模式: {self.play_mode.value}")
+        
+        next_index = self.get_next_music_index()
+        
+        if next_index >= 0 and next_index < len(self.music_list):
+            next_music = self.music_list[next_index]
+            print(f"自动播放下一首: {next_music.title}")
+            self.play_music(next_music)
+        elif self.play_mode == PlayMode.SEQUENTIAL:
+            print("顺序播放已结束")
+            self.is_playing = False
+            self.current_playing_music = None
+            self.update_control_bar()
+            self.load_page()
+        else:
+            print("没有更多音乐可播放")
 
     def convert_audio_to_base64(self, file_path: str) -> str:
         """将音频文件转换为base64编码"""
@@ -133,6 +269,9 @@ class HomeState(Xstate):
             # 检查文件是否存在
             if not os.path.exists(music.music_path):
                 print(f"音乐文件不存在: {music.music_path}")
+                # 如果文件不存在，尝试播放下一首
+                if self.play_mode != PlayMode.SEQUENTIAL:
+                    self.auto_play_next()
                 return
             
             # 如果正在播放音乐，先释放资源
@@ -164,9 +303,15 @@ class HomeState(Xstate):
                 
             else:
                 print("无法加载音乐文件")
+                # 如果转换失败，尝试播放下一首
+                if self.play_mode != PlayMode.SEQUENTIAL:
+                    self.auto_play_next()
                 
         except Exception as e:
             print(f"播放音乐失败: {e}")
+            # 如果播放失败，尝试播放下一首
+            if self.play_mode != PlayMode.SEQUENTIAL:
+                self.auto_play_next()
 
     def toggle_play_pause(self, e):
         """切换播放/暂停"""
@@ -185,47 +330,25 @@ class HomeState(Xstate):
 
     def previous_music(self, e):
         """上一首音乐"""
-        if not self.music_list:
-            return
+        previous_index = self.get_previous_music_index()
         
-        current_index = -1
-        if self.current_playing_music:
-            for i, music in enumerate(self.music_list):
-                if music.id == self.current_playing_music.id:
-                    current_index = i
-                    break
-        
-        # 如果是第一首或没有当前音乐，播放最后一首
-        if current_index <= 0:
-            next_index = len(self.music_list) - 1
+        if previous_index >= 0 and previous_index < len(self.music_list):
+            previous_music = self.music_list[previous_index]
+            print(f"切换到上一首: {previous_music.title}")
+            self.play_music(previous_music)
         else:
-            next_index = current_index - 1
-            
-        if 0 <= next_index < len(self.music_list):
-            print(f"切换到上一首: {self.music_list[next_index].title}")
-            self.play_music(self.music_list[next_index])
+            print("没有上一首音乐")
 
     def next_music(self, e):
         """下一首音乐"""
-        if not self.music_list:
-            return
+        next_index = self.get_next_music_index()
         
-        current_index = -1
-        if self.current_playing_music:
-            for i, music in enumerate(self.music_list):
-                if music.id == self.current_playing_music.id:
-                    current_index = i
-                    break
-        
-        # 如果是最后一首或没有当前音乐，播放第一首
-        if current_index >= len(self.music_list) - 1:
-            next_index = 0
+        if next_index >= 0 and next_index < len(self.music_list):
+            next_music = self.music_list[next_index]
+            print(f"切换到下一首: {next_music.title}")
+            self.play_music(next_music)
         else:
-            next_index = current_index + 1
-            
-        if 0 <= next_index < len(self.music_list):
-            print(f"切换到下一首: {self.music_list[next_index].title}")
-            self.play_music(self.music_list[next_index])
+            print("没有下一首音乐")
 
     def update_control_bar(self):
         """更新控制条显示"""
@@ -250,9 +373,8 @@ class HomeState(Xstate):
         """音频状态改变事件"""
         print(f"音频状态改变: {e.data}")
         if e.data == "completed":
-            # 音乐播放完毕，自动播放下一首
-            print("音乐播放完毕，自动播放下一首")
-            self.next_music(None)
+            # 音乐播放完毕，根据播放模式自动处理
+            self.auto_play_next()
         elif e.data == "paused":
             self.is_playing = False
             self.update_control_bar()
@@ -359,7 +481,13 @@ class HomeState(Xstate):
                         padding=ft.padding.all(20),
                         content=ft.Column(
                             controls=[
-                                ft.Text("我的歌曲", size=28, weight=ft.FontWeight.BOLD),
+                                ft.Row(
+                                    controls=[
+                                        ft.Text("我的歌曲", size=28, weight=ft.FontWeight.BOLD),
+                                        ft.Container(expand=True),
+                                        ft.Text(f"播放模式: {self.play_mode.value}", size=12, color=ft.Colors.GREY_600)
+                                    ]
+                                ),
                                 ft.Container(height=10),
                                 ft.ElevatedButton(
                                     "音乐管理",
