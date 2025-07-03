@@ -1,7 +1,7 @@
 from fletx import Xview
 import flet as ft 
 
-class NextView(Xview):
+class DetailView(Xview):
     # 没有appbar的信息？
     def build(self):
         return ft.View(

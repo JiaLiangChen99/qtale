@@ -6,5 +6,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fletx>=0.2.0",
-    "sqlalchemy"
+    "sqlalchemy",
+    "flet-audio==0.1.0",
 ]

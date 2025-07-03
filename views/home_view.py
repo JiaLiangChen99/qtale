@@ -1,14 +1,18 @@
+from typing import cast
+
 import flet as ft 
 from fletx import Xview
 from fletx.controls import Switch
 
+from states.home_child_state import HomeState, ManagerState, FindState
+from states.main_state import MainState
 class HomeView(Xview):
 
-    def build(self):
+    def build(self):        
         return ft.View(
             # 设置程序的头部信息
             appbar=ft.AppBar(
-                title=ft.Text("Flet & FletX - Bottom navigation"),
+                title=ft.Text("Music"),
                 center_title=True,
                 bgcolor=ft.Colors.BLACK12,
                 shape=ft.NotchShape.CIRCULAR,
@@ -18,14 +22,14 @@ class HomeView(Xview):
                 bgcolor=ft.Colors.BLACK12,
                 inactive_color=ft.Colors.GREY,
                 active_color=ft.Colors.WHITE,
-                on_change=self.state.change_nav,
+                on_change=cast(MainState,self.state).change_nav,
                 destinations=[
-                    ft.NavigationBarDestination(icon=ft.Icons.HOME, label="Home"),
-                    ft.NavigationBarDestination(icon=ft.Icons.COMMUTE, label="Commute"),
+                    ft.NavigationBarDestination(icon=ft.Icons.HOME, label="听歌"),
+                    ft.NavigationBarDestination(icon=ft.Icons.COMMUTE, label="管歌"),
                     ft.NavigationBarDestination(
                         icon=ft.Icons.BOOKMARK_BORDER,
                         selected_icon=ft.Icons.BOOKMARK,
-                        label="Explore",
+                        label="查歌",
                     ),
                 ]
             ),
@@ -38,16 +42,8 @@ class HomeView(Xview):
                     content=Switch(
                         ref=self.state.nav_switch,
                         controls={
-                            "0": ft.Container(
-                                expand=True,
-                                content=ft.Column(
-                                    controls=[
-                                        ft.Text("Home",size=30),
-                                        ft.ElevatedButton("Go Next View",on_click=lambda e:self.go("/next"))
-                                    ]
-                                )
-                            ),
-                            "1": self.state.second_page,
+                            "0": cast(HomeState,self.state.home_view_state.home_state).build_home_page(),
+                            "1": cast(ManagerState, self.state.home_view_state.manager_state).build_manager_page(),
                             "2": ft.Container(
                                 expand=True,
                                 content=ft.Text("Explore",size=30)
