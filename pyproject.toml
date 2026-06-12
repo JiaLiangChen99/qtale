@@ -3,12 +3,12 @@ name = "flet-gha-example"
 version = "0.1.0"   # Build Version. Update for each new release of your app.
 description = "A simple Flet app, built by GitHub Actions."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
     { name = "TheEthicalBoy", email = "me@ethicalboy.com" }
 ]
 dependencies = [
-    "flet==0.80.6.dev7664"
+    "flet==0.85.3"
 ]
 
 [dependency-groups]
